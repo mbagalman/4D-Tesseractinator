@@ -7,6 +7,7 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 matplotlib.use("Agg")
 
 from matplotlib.figure import Figure
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from tesseractinator import plot_dashboard, plot_projection, plot_slice
 
@@ -21,6 +22,7 @@ def test_plot_slice_returns_figure_for_real_slice():
     figure = plot_slice({"xy": 0.3, "xw": 0.8}, w_fixed=0.0)
     assert isinstance(figure, Figure)
     assert any(axis.name == "3d" for axis in figure.axes)
+    assert any(isinstance(collection, Poly3DCollection) for collection in figure.axes[0].collections)
 
 
 def test_plot_slice_renders_empty_state_for_missing_slice():

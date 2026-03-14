@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Mapping, Optional
 
 import numpy as np
+from scipy.spatial import ConvexHull, QhullError
 
 from ._constants import AXIS_COLORS, AXIS_LABELS, DEFAULT_VIEWER_DISTANCE, DEFAULT_W_SLICE, TOL
 from .geometry import (
@@ -23,10 +24,10 @@ def _require_matplotlib():
     try:
         import matplotlib.pyplot as plt
         from matplotlib.lines import Line2D
-        from mpl_toolkits.mplot3d.art3d import Line3DCollection
+        from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
     except ImportError as exc:
         raise ImportError("matplotlib is required for rendering. Install with `pip install -e .`.") from exc
-    return plt, Line2D, Line3DCollection
+    return plt, Line2D, Line3DCollection, Poly3DCollection
 
 
 def _edge_axis_index(edge) -> int:
@@ -51,7 +52,7 @@ def _rotation_text(angles: Mapping[str, float]) -> str:
 
 
 def _draw_projection(ax, angles: Mapping[str, float], viewer_distance: float, *, add_legend: bool, add_colorbar: bool):
-    plt, Line2D, Line3DCollection = _require_matplotlib()
+    plt, Line2D, Line3DCollection, _ = _require_matplotlib()
     vertices4d = generate_tesseract_vertices()
     edges = generate_tesseract_edge_indices()
     rotated_vertices = rotate_points(vertices4d, angles)
@@ -126,8 +127,33 @@ def _draw_empty_slice(ax, w_fixed: float) -> None:
     ax.set_box_aspect((1, 1, 1))
 
 
+def _build_slice_face_collection(vertices: np.ndarray):
+    plt, _, _, Poly3DCollection = _require_matplotlib()
+    try:
+        hull = ConvexHull(vertices, qhull_options="QJ")
+    except QhullError:
+        return None
+
+    triangular_faces = [vertices[simplex] for simplex in hull.simplices]
+    face_depth = np.array([np.mean(face[:, 2]) for face in triangular_faces], dtype=float)
+    if np.isclose(face_depth.max(), face_depth.min()):
+        color_values = np.full(len(triangular_faces), 0.5)
+    else:
+        color_values = (face_depth - face_depth.min()) / (face_depth.max() - face_depth.min())
+
+    face_colors = plt.get_cmap("plasma")(0.2 + 0.55 * color_values)
+    face_colors[:, 3] = 0.35
+    return Poly3DCollection(
+        triangular_faces,
+        facecolors=face_colors,
+        edgecolors="none",
+        linewidths=0.0,
+        zsort="average",
+    )
+
+
 def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, show_info: bool) -> bool:
-    _, _, Line3DCollection = _require_matplotlib()
+    _, _, Line3DCollection, _ = _require_matplotlib()
     try:
         vertices, edges = slice_tesseract(angles, w_fixed=w_fixed, tol=tol)
     except Exception as exc:
@@ -145,6 +171,9 @@ def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, 
     if len(vertices):
         colors = normalized
 
+    face_collection = _build_slice_face_collection(vertices)
+    if face_collection is not None:
+        ax.add_collection3d(face_collection)
     ax.add_collection3d(Line3DCollection(edges, colors="black", linewidths=1.4, alpha=0.8))
     ax.scatter(
         vertices[:, 0],
@@ -182,7 +211,7 @@ def plot_projection(
     *,
     show_plot: bool = False,
 ):
-    plt, _, _ = _require_matplotlib()
+    plt, _, _, _ = _require_matplotlib()
     figure = plt.figure(figsize=(8, 7))
     axis = figure.add_subplot(111, projection="3d")
     _draw_projection(axis, normalize_angles(angles), viewer_distance, add_legend=True, add_colorbar=True)
@@ -198,7 +227,7 @@ def plot_slice(
     *,
     show_plot: bool = False,
 ):
-    plt, _, _ = _require_matplotlib()
+    plt, _, _, _ = _require_matplotlib()
     figure = plt.figure(figsize=(8, 7))
     axis = figure.add_subplot(111, projection="3d")
     _draw_slice(axis, normalize_angles(angles), w_fixed, tol=TOL, show_info=True)
@@ -216,7 +245,7 @@ def plot_dashboard(
     *,
     show_plot: bool = False,
 ):
-    plt, _, _ = _require_matplotlib()
+    plt, _, _, _ = _require_matplotlib()
     normalized_angles = normalize_angles(angles)
     if view_mode not in {"projection", "slice", "both"}:
         raise ValueError(f"Invalid view_mode: {view_mode!r}")
