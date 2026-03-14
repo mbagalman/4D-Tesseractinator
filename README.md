@@ -1,5 +1,7 @@
 # 4D-Tesseractinator
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbagalman/4D-Tesseractinator/HEAD?urlpath=lab/tree/notebooks/4D_Tesseractinator_Demo.ipynb)
+
 `4D-Tesseractinator` unifies two earlier experiments into one notebook-first codebase:
 
 - a 4D-to-3D projection view derived from `Tesseract`
@@ -35,6 +37,11 @@ If you only want the library without notebook tooling:
 ```
 
 ## Run
+
+Launch in Binder:
+
+- Open the badge above, or use [this Binder link](https://mybinder.org/v2/gh/mbagalman/4D-Tesseractinator/HEAD?urlpath=lab/tree/notebooks/4D_Tesseractinator_Demo.ipynb).
+- Binder builds can take a minute on first launch because it needs to install the notebook dependencies and package.
 
 Launch the test suite:
 
