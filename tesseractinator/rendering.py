@@ -146,7 +146,7 @@ def _build_slice_surface(vertices: np.ndarray, ax):
     try:
         hull = ConvexHull(vertices, qhull_options="QJ")
     except QhullError:
-        return None, []
+        return None, [], np.array([], dtype=int)
 
     centroid = vertices.mean(axis=0)
     view_dir = _camera_direction(ax)
@@ -176,7 +176,7 @@ def _build_slice_surface(vertices: np.ndarray, ax):
 
     front_faces = [face_vertices[index] for index in front_face_indices if index in face_vertices]
     if not front_faces:
-        return None, []
+        return None, [], np.array([], dtype=int)
 
     face_strength = np.array([max(0.0, np.dot(face_normals[index], view_dir)) for index in front_face_indices], dtype=float)
     if np.isclose(face_strength.max(), face_strength.min()):
@@ -195,6 +195,7 @@ def _build_slice_surface(vertices: np.ndarray, ax):
     )
 
     visible_edges = []
+    visible_vertex_indices = set()
     for edge_indices, adjacent_faces in edge_to_faces.items():
         front_adjacent = [face_index for face_index in adjacent_faces if face_index in front_face_indices]
         if not front_adjacent:
@@ -205,8 +206,13 @@ def _build_slice_surface(vertices: np.ndarray, ax):
             if all(np.linalg.norm(np.cross(first, normal)) < 1e-6 for normal in normals[1:]):
                 continue
         visible_edges.append(vertices[list(edge_indices)])
+        visible_vertex_indices.update(edge_indices)
 
-    return face_collection, visible_edges
+    if not visible_vertex_indices:
+        for face_index in front_face_indices:
+            visible_vertex_indices.update(hull.simplices[face_index])
+
+    return face_collection, visible_edges, np.array(sorted(visible_vertex_indices), dtype=int)
 
 
 def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, show_info: bool) -> bool:
@@ -228,17 +234,19 @@ def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, 
     if len(vertices):
         colors = normalized
 
-    face_collection, visible_edges = _build_slice_surface(vertices, ax)
+    face_collection, visible_edges, visible_vertex_indices = _build_slice_surface(vertices, ax)
     if face_collection is not None:
         ax.add_collection3d(face_collection)
     edge_segments = visible_edges or edges
     ax.add_collection3d(Line3DCollection(edge_segments, colors="black", linewidths=1.4, alpha=0.8))
+    visible_vertices = vertices[visible_vertex_indices] if len(visible_vertex_indices) else vertices
+    visible_colors = colors[visible_vertex_indices] if len(visible_vertex_indices) else colors
     ax.scatter(
-        vertices[:, 0],
-        vertices[:, 1],
-        vertices[:, 2],
+        visible_vertices[:, 0],
+        visible_vertices[:, 1],
+        visible_vertices[:, 2],
         s=60,
-        c=colors,
+        c=visible_colors,
         cmap="plasma",
         edgecolors="black",
         linewidths=0.5,

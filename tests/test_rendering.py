@@ -1,6 +1,7 @@
 import os
 
 import matplotlib
+import numpy as np
 import pytest
 
 os.environ.setdefault("MPLBACKEND", "Agg")
@@ -33,6 +34,14 @@ def test_plot_slice_hides_occluded_edges_for_default_view():
     )
     _, all_edges = slice_tesseract({}, w_fixed=0.0)
     assert 0 < len(line_collection._segments3d) < len(all_edges)
+
+
+def test_plot_slice_hides_back_side_vertices_for_default_view():
+    figure = plot_slice({}, w_fixed=0.0)
+    scatter = next(collection for collection in figure.axes[0].collections if hasattr(collection, "_offsets3d"))
+    visible_vertex_count = len(np.asarray(scatter._offsets3d[0]))
+    all_vertices, _ = slice_tesseract({}, w_fixed=0.0)
+    assert 0 < visible_vertex_count < len(all_vertices)
 
 
 def test_plot_slice_renders_empty_state_for_missing_slice():
