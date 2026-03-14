@@ -32,7 +32,7 @@ def create_interactive_dashboard(display_ui: bool = True):
             max=float(np.pi),
             step=0.05,
             description=plane.upper(),
-            continuous_update=False,
+            continuous_update=True,
             readout_format=".2f",
             layout=widgets.Layout(width="320px"),
         )
@@ -45,7 +45,7 @@ def create_interactive_dashboard(display_ui: bool = True):
         max=10.0,
         step=0.1,
         description="View",
-        continuous_update=False,
+        continuous_update=True,
         readout_format=".1f",
         layout=widgets.Layout(width="320px"),
     )
@@ -55,7 +55,7 @@ def create_interactive_dashboard(display_ui: bool = True):
         max=1.2,
         step=0.05,
         description="W slice",
-        continuous_update=False,
+        continuous_update=True,
         readout_format=".2f",
         layout=widgets.Layout(width="320px"),
     )
