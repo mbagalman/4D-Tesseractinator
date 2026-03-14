@@ -7,8 +7,9 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 matplotlib.use("Agg")
 
 from matplotlib.figure import Figure
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 
+from tesseractinator.geometry import slice_tesseract
 from tesseractinator import plot_dashboard, plot_projection, plot_slice
 
 
@@ -23,6 +24,15 @@ def test_plot_slice_returns_figure_for_real_slice():
     assert isinstance(figure, Figure)
     assert any(axis.name == "3d" for axis in figure.axes)
     assert any(isinstance(collection, Poly3DCollection) for collection in figure.axes[0].collections)
+
+
+def test_plot_slice_hides_occluded_edges_for_default_view():
+    figure = plot_slice({}, w_fixed=0.0)
+    line_collection = next(
+        collection for collection in figure.axes[0].collections if isinstance(collection, Line3DCollection)
+    )
+    _, all_edges = slice_tesseract({}, w_fixed=0.0)
+    assert 0 < len(line_collection._segments3d) < len(all_edges)
 
 
 def test_plot_slice_renders_empty_state_for_missing_slice():

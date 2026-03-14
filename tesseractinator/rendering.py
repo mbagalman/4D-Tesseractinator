@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from itertools import combinations
 from typing import Mapping, Optional
 
 import numpy as np
@@ -127,29 +128,85 @@ def _draw_empty_slice(ax, w_fixed: float) -> None:
     ax.set_box_aspect((1, 1, 1))
 
 
-def _build_slice_face_collection(vertices: np.ndarray):
+def _camera_direction(ax) -> np.ndarray:
+    elev = np.deg2rad(ax.elev)
+    azim = np.deg2rad(ax.azim)
+    return np.array(
+        [
+            np.cos(elev) * np.cos(azim),
+            np.cos(elev) * np.sin(azim),
+            np.sin(elev),
+        ],
+        dtype=float,
+    )
+
+
+def _build_slice_surface(vertices: np.ndarray, ax):
     plt, _, _, Poly3DCollection = _require_matplotlib()
     try:
         hull = ConvexHull(vertices, qhull_options="QJ")
     except QhullError:
-        return None
+        return None, []
 
-    triangular_faces = [vertices[simplex] for simplex in hull.simplices]
-    face_depth = np.array([np.mean(face[:, 2]) for face in triangular_faces], dtype=float)
-    if np.isclose(face_depth.max(), face_depth.min()):
-        color_values = np.full(len(triangular_faces), 0.5)
+    centroid = vertices.mean(axis=0)
+    view_dir = _camera_direction(ax)
+    face_normals = {}
+    face_vertices = {}
+    front_face_indices = set()
+    edge_to_faces = {}
+
+    for face_index, simplex in enumerate(hull.simplices):
+        triangle = vertices[simplex]
+        normal = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
+        norm = np.linalg.norm(normal)
+        if np.isclose(norm, 0.0):
+            continue
+        normal = normal / norm
+        face_center = triangle.mean(axis=0)
+        if np.dot(normal, face_center - centroid) < 0:
+            normal = -normal
+
+        face_normals[face_index] = normal
+        face_vertices[face_index] = triangle
+        if np.dot(normal, view_dir) > 1e-9:
+            front_face_indices.add(face_index)
+
+        for edge in combinations(simplex, 2):
+            edge_to_faces.setdefault(tuple(sorted(edge)), []).append(face_index)
+
+    front_faces = [face_vertices[index] for index in front_face_indices if index in face_vertices]
+    if not front_faces:
+        return None, []
+
+    face_strength = np.array([max(0.0, np.dot(face_normals[index], view_dir)) for index in front_face_indices], dtype=float)
+    if np.isclose(face_strength.max(), face_strength.min()):
+        color_values = np.full(len(front_faces), 0.5)
     else:
-        color_values = (face_depth - face_depth.min()) / (face_depth.max() - face_depth.min())
+        color_values = (face_strength - face_strength.min()) / (face_strength.max() - face_strength.min())
 
     face_colors = plt.get_cmap("plasma")(0.2 + 0.55 * color_values)
-    face_colors[:, 3] = 0.35
-    return Poly3DCollection(
-        triangular_faces,
+    face_colors[:, 3] = 0.7
+    face_collection = Poly3DCollection(
+        front_faces,
         facecolors=face_colors,
         edgecolors="none",
         linewidths=0.0,
         zsort="average",
     )
+
+    visible_edges = []
+    for edge_indices, adjacent_faces in edge_to_faces.items():
+        front_adjacent = [face_index for face_index in adjacent_faces if face_index in front_face_indices]
+        if not front_adjacent:
+            continue
+        if len(front_adjacent) == len(adjacent_faces) and len(front_adjacent) >= 2:
+            normals = [face_normals[face_index] for face_index in front_adjacent]
+            first = normals[0]
+            if all(np.linalg.norm(np.cross(first, normal)) < 1e-6 for normal in normals[1:]):
+                continue
+        visible_edges.append(vertices[list(edge_indices)])
+
+    return face_collection, visible_edges
 
 
 def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, show_info: bool) -> bool:
@@ -171,10 +228,11 @@ def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, 
     if len(vertices):
         colors = normalized
 
-    face_collection = _build_slice_face_collection(vertices)
+    face_collection, visible_edges = _build_slice_surface(vertices, ax)
     if face_collection is not None:
         ax.add_collection3d(face_collection)
-    ax.add_collection3d(Line3DCollection(edges, colors="black", linewidths=1.4, alpha=0.8))
+    edge_segments = visible_edges or edges
+    ax.add_collection3d(Line3DCollection(edge_segments, colors="black", linewidths=1.4, alpha=0.8))
     ax.scatter(
         vertices[:, 0],
         vertices[:, 1],
