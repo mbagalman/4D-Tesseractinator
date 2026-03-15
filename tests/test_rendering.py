@@ -20,6 +20,19 @@ def test_plot_projection_returns_figure():
     assert any(axis.name == "3d" for axis in figure.axes)
 
 
+def test_plot_dashboard_can_reuse_existing_figure():
+    reusable_figure = Figure(figsize=(14, 6))
+    returned_figure = plot_dashboard(
+        angles={"xy": 0.3, "xw": 0.8},
+        view_mode="both",
+        viewer_distance=3.5,
+        w_fixed=0.0,
+        figure=reusable_figure,
+    )
+    assert returned_figure is reusable_figure
+    assert len([axis for axis in returned_figure.axes if axis.name == "3d"]) == 2
+
+
 def test_plot_slice_returns_figure_for_real_slice():
     figure = plot_slice({"xy": 0.3, "xw": 0.8}, w_fixed=0.0)
     assert isinstance(figure, Figure)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Mapping, Optional
+from typing import Mapping
 
 import numpy as np
 from scipy.spatial import ConvexHull, QhullError
@@ -141,6 +141,41 @@ def _camera_direction(ax) -> np.ndarray:
     )
 
 
+def _configure_figure(figure, view_mode: str):
+    if view_mode == "both":
+        figure.set_size_inches(14, 6, forward=True)
+        figure.subplots_adjust(left=0.05, right=0.97, bottom=0.08, top=0.9, wspace=0.18)
+        projection_axis = figure.add_subplot(121, projection="3d")
+        slice_axis = figure.add_subplot(122, projection="3d")
+        return projection_axis, slice_axis
+
+    figure.set_size_inches(8, 7, forward=True)
+    figure.subplots_adjust(left=0.08, right=0.95, bottom=0.08, top=0.92)
+    return figure.add_subplot(111, projection="3d")
+
+
+def _render_dashboard_to_figure(figure, angles: Mapping[str, float], view_mode: str, viewer_distance: float, w_fixed: float):
+    figure.clear()
+    if view_mode == "projection":
+        axis = _configure_figure(figure, view_mode)
+        _draw_projection(axis, angles, viewer_distance, add_legend=True, add_colorbar=True)
+    elif view_mode == "slice":
+        axis = _configure_figure(figure, view_mode)
+        _draw_slice(axis, angles, w_fixed, tol=TOL, show_info=True)
+    else:
+        projection_axis, slice_axis = _configure_figure(figure, view_mode)
+        _draw_projection(
+            projection_axis,
+            angles,
+            viewer_distance,
+            add_legend=False,
+            add_colorbar=False,
+        )
+        _draw_slice(slice_axis, angles, w_fixed, tol=TOL, show_info=True)
+        figure.suptitle("4D-Tesseractinator Dashboard")
+    return figure
+
+
 def _build_slice_surface(vertices: np.ndarray, ax):
     plt, _, _, Poly3DCollection = _require_matplotlib()
     try:
@@ -275,13 +310,19 @@ def plot_projection(
     angles: Mapping[str, float] | None,
     viewer_distance: float = DEFAULT_VIEWER_DISTANCE,
     *,
+    figure=None,
     show_plot: bool = False,
 ):
     plt, _, _, _ = _require_matplotlib()
-    figure = plt.figure(figsize=(8, 7))
-    axis = figure.add_subplot(111, projection="3d")
-    _draw_projection(axis, normalize_angles(angles), viewer_distance, add_legend=True, add_colorbar=True)
-    figure.tight_layout()
+    if figure is None:
+        figure = plt.figure(figsize=(8, 7))
+    _render_dashboard_to_figure(
+        figure,
+        normalize_angles(angles),
+        "projection",
+        viewer_distance,
+        DEFAULT_W_SLICE,
+    )
     if show_plot:
         plt.show()
     return figure
@@ -291,13 +332,19 @@ def plot_slice(
     angles: Mapping[str, float] | None,
     w_fixed: float = DEFAULT_W_SLICE,
     *,
+    figure=None,
     show_plot: bool = False,
 ):
     plt, _, _, _ = _require_matplotlib()
-    figure = plt.figure(figsize=(8, 7))
-    axis = figure.add_subplot(111, projection="3d")
-    _draw_slice(axis, normalize_angles(angles), w_fixed, tol=TOL, show_info=True)
-    figure.tight_layout()
+    if figure is None:
+        figure = plt.figure(figsize=(8, 7))
+    _render_dashboard_to_figure(
+        figure,
+        normalize_angles(angles),
+        "slice",
+        DEFAULT_VIEWER_DISTANCE,
+        w_fixed,
+    )
     if show_plot:
         plt.show()
     return figure
@@ -309,6 +356,7 @@ def plot_dashboard(
     viewer_distance: float = DEFAULT_VIEWER_DISTANCE,
     w_fixed: float = DEFAULT_W_SLICE,
     *,
+    figure=None,
     show_plot: bool = False,
 ):
     plt, _, _, _ = _require_matplotlib()
@@ -316,24 +364,15 @@ def plot_dashboard(
     if view_mode not in {"projection", "slice", "both"}:
         raise ValueError(f"Invalid view_mode: {view_mode!r}")
 
-    if view_mode == "projection":
-        figure = plot_projection(normalized_angles, viewer_distance, show_plot=False)
-    elif view_mode == "slice":
-        figure = plot_slice(normalized_angles, w_fixed, show_plot=False)
-    else:
-        figure = plt.figure(figsize=(14, 6))
-        projection_axis = figure.add_subplot(121, projection="3d")
-        slice_axis = figure.add_subplot(122, projection="3d")
-        _draw_projection(
-            projection_axis,
-            normalized_angles,
-            viewer_distance,
-            add_legend=False,
-            add_colorbar=False,
-        )
-        _draw_slice(slice_axis, normalized_angles, w_fixed, tol=TOL, show_info=True)
-        figure.suptitle("4D-Tesseractinator Dashboard")
-        figure.tight_layout()
+    if figure is None:
+        figure = plt.figure(figsize=(14, 6) if view_mode == "both" else (8, 7))
+    _render_dashboard_to_figure(
+        figure,
+        normalized_angles,
+        view_mode,
+        viewer_distance,
+        w_fixed,
+    )
 
     if show_plot:
         plt.show()

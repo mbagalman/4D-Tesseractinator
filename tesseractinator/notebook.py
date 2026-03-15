@@ -18,12 +18,12 @@ def create_interactive_dashboard(display_ui: bool = True):
         from IPython.display import display
     except ImportError as exc:
         raise ImportError(
-            "Interactive notebooks require ipywidgets and IPython. Install with `pip install -e \".[notebook]\"`."
+            "Interactive notebooks require ipywidgets and IPython. Install with `pip install \".[notebook]\"`."
         ) from exc
 
     presets = standard_presets()
     custom_value = "__custom__"
-    state = {"applying_preset": False}
+    state = {"applying_preset": False, "figure": None, "display_handle": None}
 
     sliders = {
         plane: widgets.FloatSlider(
@@ -84,17 +84,23 @@ def create_interactive_dashboard(display_ui: bool = True):
         }
 
     def render(*_):
+        if state["figure"] is None:
+            state["figure"] = plt.figure(figsize=(14, 6))
         figure = plot_dashboard(
             angles=current_angles(),
             view_mode=view_mode.value,
             viewer_distance=viewer_distance.value,
             w_fixed=w_fixed.value,
+            figure=state["figure"],
             show_plot=False,
         )
-        with output:
-            output.clear_output(wait=True)
-            display(figure)
-        plt.close(figure)
+        if state["display_handle"] is None:
+            with output:
+                output.clear_output(wait=True)
+                state["display_handle"] = display(figure, display_id=True)
+        else:
+            figure.canvas.draw_idle()
+            state["display_handle"].update(figure)
 
     def apply_preset(change):
         if change["name"] != "value":
