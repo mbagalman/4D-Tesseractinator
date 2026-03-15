@@ -9,6 +9,8 @@
 
 The shared controls let you rotate the same tesseract and inspect the projection, the slice, or both at once.
 
+For a short explanation of the geometry behind the project, see [How It Works](docs/how-it-works.md).
+
 ## What ships in v1
 
 - Shared 4D math core for vertices, edges, rotation composition, projection, and slicing
