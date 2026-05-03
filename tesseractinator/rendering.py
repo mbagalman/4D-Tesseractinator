@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from itertools import combinations
-from typing import Mapping
 
 import numpy as np
 from scipy.spatial import ConvexHull
@@ -42,7 +42,7 @@ def _set_equal_aspect(ax, vertices: np.ndarray) -> None:
     max_range = (vertices.max(axis=0) - vertices.min(axis=0)).max() / 2.0
     center = vertices.mean(axis=0)
     max_range = max(max_range, 0.5)
-    for setter, coord in zip((ax.set_xlim, ax.set_ylim, ax.set_zlim), center):
+    for setter, coord in zip((ax.set_xlim, ax.set_ylim, ax.set_zlim), center, strict=True):
         setter(coord - max_range, coord + max_range)
     ax.set_box_aspect((1, 1, 1))
 
@@ -53,7 +53,9 @@ def _rotation_text(angles: Mapping[str, float]) -> str:
     return ", ".join(f"{plane}={value:+.2f}" for plane, value in angles.items())
 
 
-def _draw_projection(ax, angles: Mapping[str, float], viewer_distance: float, *, add_legend: bool, add_colorbar: bool):
+def _draw_projection(
+    ax, angles: Mapping[str, float], viewer_distance: float, *, add_legend: bool, add_colorbar: bool
+):
     plt, Line2D, Line3DCollection, _ = _require_matplotlib()
     vertices4d = generate_tesseract_vertices()
     edges = generate_tesseract_edge_indices()
@@ -102,7 +104,7 @@ def _draw_projection(ax, angles: Mapping[str, float], viewer_distance: float, *,
     if add_legend:
         legend_elements = [
             Line2D([0], [0], color=color, lw=3, label=f"{label}-aligned")
-            for color, label in zip(AXIS_COLORS, AXIS_LABELS)
+            for color, label in zip(AXIS_COLORS, AXIS_LABELS, strict=True)
         ]
         ax.legend(handles=legend_elements, loc="upper right")
     if add_colorbar:
@@ -155,7 +157,9 @@ def _configure_figure(figure, view_mode: str):
     return figure.add_subplot(111, projection="3d")
 
 
-def _render_dashboard_to_figure(figure, angles: Mapping[str, float], view_mode: str, viewer_distance: float, w_fixed: float):
+def _render_dashboard_to_figure(
+    figure, angles: Mapping[str, float], view_mode: str, viewer_distance: float, w_fixed: float
+):
     figure.clear()
     if view_mode == "projection":
         axis = _configure_figure(figure, view_mode)
@@ -209,7 +213,9 @@ def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
     if not front_faces:
         return None, [], np.array([], dtype=int)
 
-    face_strength = np.array([max(0.0, np.dot(face_normals[index], view_dir)) for index in front_face_indices], dtype=float)
+    face_strength = np.array(
+        [max(0.0, np.dot(face_normals[index], view_dir)) for index in front_face_indices], dtype=float
+    )
     if np.isclose(face_strength.max(), face_strength.min()):
         color_values = np.full(len(front_faces), 0.5)
     else:

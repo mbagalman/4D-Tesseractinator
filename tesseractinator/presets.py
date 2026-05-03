@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Dict
-
 import numpy as np
 
-AngleDict = Dict[str, float]
+AngleDict = dict[str, float]
 
 __all__ = ["standard_presets"]
 
 
-def standard_presets() -> Dict[str, AngleDict]:
+def standard_presets() -> dict[str, AngleDict]:
     return {
         "identity": {},
         "xy_45": {"xy": np.pi / 4},

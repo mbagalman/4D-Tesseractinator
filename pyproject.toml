@@ -7,7 +7,7 @@ name = "tesseractinator"
 version = "0.1.0"
 description = "Unified notebook-first tools for projecting and slicing a rotating 4D tesseract."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Michael Bagalman" }]
 dependencies = [
@@ -24,6 +24,8 @@ notebook = [
 ]
 dev = [
   "pytest>=8.0",
+  "pytest-cov>=4.0",
+  "ruff>=0.6",
 ]
 
 [tool.setuptools]
@@ -35,3 +37,21 @@ include = ["tesseractinator*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+]
+ignore = [
+  "E501",  # line length is enforced by formatter, not lint
+]
