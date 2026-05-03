@@ -40,6 +40,32 @@ def test_compose_rotation_matrix_is_orthonormal():
     assert np.allclose(matrix.T @ matrix, np.eye(4), atol=1e-10)
 
 
+def test_rotation_matrix_4d_pins_rotation_direction():
+    # 90 degrees in the xy plane sends +x to +y.
+    R_xy = rotation_matrix_4d(0, 1, np.pi / 2)
+    assert np.allclose(R_xy @ np.array([1.0, 0.0, 0.0, 0.0]), [0.0, 1.0, 0.0, 0.0], atol=1e-12)
+    # 90 degrees in the xw plane sends +x to +w.
+    R_xw = rotation_matrix_4d(0, 3, np.pi / 2)
+    assert np.allclose(R_xw @ np.array([1.0, 0.0, 0.0, 0.0]), [0.0, 0.0, 0.0, 1.0], atol=1e-12)
+
+
+def test_compose_rotation_matrix_uses_insertion_order():
+    a, b = 0.5, 0.7
+    R_xy = rotation_matrix_4d(0, 1, a)
+    R_xw = rotation_matrix_4d(0, 3, b)
+
+    # compose pre-multiplies new rotations: {xy: a, xw: b} -> R_xw @ R_xy.
+    forward = compose_rotation_matrix({"xy": a, "xw": b})
+    assert np.allclose(forward, R_xw @ R_xy, atol=1e-12)
+
+    # Reversed insertion gives the other product.
+    reversed_ = compose_rotation_matrix({"xw": b, "xy": a})
+    assert np.allclose(reversed_, R_xy @ R_xw, atol=1e-12)
+
+    # And the two are not the same matrix (4D rotations don't commute).
+    assert not np.allclose(forward, reversed_, atol=1e-6)
+
+
 @pytest.mark.parametrize(
     "axis1, axis2",
     [
@@ -52,6 +78,26 @@ def test_compose_rotation_matrix_is_orthonormal():
 def test_rotation_matrix_rejects_invalid_axes(axis1, axis2):
     with pytest.raises(ValueError):
         rotation_matrix_4d(axis1, axis2, 0.2)
+
+
+def test_project_4d_to_3d_known_values():
+    viewer_distance = 4.0
+    points = np.array(
+        [
+            [1.0, 2.0, 3.0, 0.0],  # factor = 4 / (4 - 0) = 1
+            [1.0, 2.0, 3.0, 2.0],  # factor = 4 / (4 - 2) = 2
+            [1.0, 2.0, 3.0, -4.0],  # factor = 4 / (4 - -4) = 0.5
+        ]
+    )
+    expected = np.array(
+        [
+            [1.0, 2.0, 3.0],
+            [2.0, 4.0, 6.0],
+            [0.5, 1.0, 1.5],
+        ]
+    )
+    actual = project_4d_to_3d(points, viewer_distance=viewer_distance)
+    assert np.allclose(actual, expected, atol=1e-12)
 
 
 def test_project_4d_to_3d_preserves_sign_near_projection_plane():
