@@ -20,3 +20,4 @@ dist/
 pip-wheel-metadata/
 .idea/
 .vscode/
+.claude/
