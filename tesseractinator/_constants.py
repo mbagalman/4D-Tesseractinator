@@ -13,7 +13,13 @@ PLANE_TO_AXES = {
     "zw": (2, 3),
 }
 
-AXIS_COLORS = ("orange", "green", "blue", "red")
-AXIS_LABELS = ("X", "Y", "Z", "W")
+AXES = (
+    ("X", "orange"),
+    ("Y", "green"),
+    ("Z", "blue"),
+    ("W", "red"),
+)
+AXIS_LABELS = tuple(label for label, _ in AXES)
+AXIS_COLORS = tuple(color for _, color in AXES)
 DEFAULT_VIEWER_DISTANCE = 3.0
 DEFAULT_W_SLICE = 0.0

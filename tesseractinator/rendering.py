@@ -32,10 +32,15 @@ def _require_matplotlib():
     return plt, Line2D, Line3DCollection, Poly3DCollection
 
 
-def _edge_axis_index(edge) -> int:
+def _compute_edge_axis_indices() -> np.ndarray:
     vertices = generate_tesseract_vertices()
-    diff = vertices[edge[0]] - vertices[edge[1]]
-    return int(np.flatnonzero(diff)[0])
+    return np.array(
+        [int(np.flatnonzero(vertices[i] - vertices[j])[0]) for i, j in generate_tesseract_edge_indices()],
+        dtype=int,
+    )
+
+
+_EDGE_AXIS_INDICES = _compute_edge_axis_indices()
 
 
 def _set_equal_aspect(ax, vertices: np.ndarray) -> None:
@@ -62,7 +67,7 @@ def _draw_projection(
     rotated_vertices = rotate_points(vertices4d, angles)
     projected = project_4d_to_3d(rotated_vertices, viewer_distance=viewer_distance)
 
-    edge_colors = [AXIS_COLORS[_edge_axis_index(edge)] for edge in edges]
+    edge_colors = [AXIS_COLORS[axis] for axis in _EDGE_AXIS_INDICES]
     line_segments = [projected[list(edge)] for edge in edges]
     w_values = rotated_vertices[:, 3]
 
@@ -181,15 +186,12 @@ def _render_dashboard_to_figure(
     return figure
 
 
-def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
-    plt, _, _, Poly3DCollection = _require_matplotlib()
-    centroid = vertices.mean(axis=0)
-    view_dir = _camera_direction(ax)
-    face_normals = {}
-    face_vertices = {}
-    front_face_indices = set()
-    edge_to_faces = {}
-
+def _compute_face_geometry(vertices: np.ndarray, hull: ConvexHull, centroid: np.ndarray):
+    """For each non-degenerate hull face, return its outward normal, its triangle
+    of vertices, and the edge -> [face_index, ...] adjacency map."""
+    face_normals: dict[int, np.ndarray] = {}
+    face_vertices: dict[int, np.ndarray] = {}
+    edge_to_faces: dict[tuple[int, int], list[int]] = {}
     for face_index, simplex in enumerate(hull.simplices):
         triangle = vertices[simplex]
         normal = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
@@ -197,25 +199,29 @@ def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
         if np.isclose(norm, 0.0):
             continue
         normal = normal / norm
-        face_center = triangle.mean(axis=0)
-        if np.dot(normal, face_center - centroid) < 0:
+        if np.dot(normal, triangle.mean(axis=0) - centroid) < 0:
             normal = -normal
-
         face_normals[face_index] = normal
         face_vertices[face_index] = triangle
-        if np.dot(normal, view_dir) > 1e-9:
-            front_face_indices.add(face_index)
-
         for edge in combinations(simplex, 2):
             edge_to_faces.setdefault(tuple(sorted(edge)), []).append(face_index)
+    return face_normals, face_vertices, edge_to_faces
 
-    front_faces = [face_vertices[index] for index in front_face_indices if index in face_vertices]
-    if not front_faces:
-        return None, [], np.array([], dtype=int)
 
-    face_strength = np.array(
-        [max(0.0, np.dot(face_normals[index], view_dir)) for index in front_face_indices], dtype=float
-    )
+def _select_front_faces(face_normals: dict[int, np.ndarray], view_dir: np.ndarray) -> set[int]:
+    return {idx for idx, normal in face_normals.items() if np.dot(normal, view_dir) > 1e-9}
+
+
+def _build_face_collection(
+    front_face_indices: set[int],
+    face_vertices: dict[int, np.ndarray],
+    face_normals: dict[int, np.ndarray],
+    view_dir: np.ndarray,
+):
+    plt, _, _, Poly3DCollection = _require_matplotlib()
+    indices = list(front_face_indices)
+    front_faces = [face_vertices[idx] for idx in indices]
+    face_strength = np.array([max(0.0, np.dot(face_normals[idx], view_dir)) for idx in indices], dtype=float)
     if np.isclose(face_strength.max(), face_strength.min()):
         color_values = np.full(len(front_faces), 0.5)
     else:
@@ -223,7 +229,7 @@ def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
 
     face_colors = plt.get_cmap("plasma")(0.2 + 0.55 * color_values)
     face_colors[:, 3] = 0.7
-    face_collection = Poly3DCollection(
+    return Poly3DCollection(
         front_faces,
         facecolors=face_colors,
         edgecolors="none",
@@ -231,14 +237,23 @@ def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
         zsort="average",
     )
 
+
+def _compute_visible_edges(
+    edge_to_faces: dict[tuple[int, int], list[int]],
+    front_face_indices: set[int],
+    face_normals: dict[int, np.ndarray],
+    vertices: np.ndarray,
+    hull: ConvexHull,
+):
     visible_edges = []
-    visible_vertex_indices = set()
+    visible_vertex_indices: set[int] = set()
     for edge_indices, adjacent_faces in edge_to_faces.items():
-        front_adjacent = [face_index for face_index in adjacent_faces if face_index in front_face_indices]
+        front_adjacent = [idx for idx in adjacent_faces if idx in front_face_indices]
         if not front_adjacent:
             continue
+        # Drop interior edges between coplanar front faces (they'd just clutter a flat region).
         if len(front_adjacent) == len(adjacent_faces) and len(front_adjacent) >= 2:
-            normals = [face_normals[face_index] for face_index in front_adjacent]
+            normals = [face_normals[idx] for idx in front_adjacent]
             first = normals[0]
             if all(np.linalg.norm(np.cross(first, normal)) < 1e-6 for normal in normals[1:]):
                 continue
@@ -246,10 +261,24 @@ def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
         visible_vertex_indices.update(edge_indices)
 
     if not visible_vertex_indices:
+        # Fallback: front faces exist but every edge was filtered out — show all front-face vertices.
         for face_index in front_face_indices:
             visible_vertex_indices.update(hull.simplices[face_index])
+    return visible_edges, np.array(sorted(visible_vertex_indices), dtype=int)
 
-    return face_collection, visible_edges, np.array(sorted(visible_vertex_indices), dtype=int)
+
+def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
+    centroid = vertices.mean(axis=0)
+    view_dir = _camera_direction(ax)
+    face_normals, face_vertices, edge_to_faces = _compute_face_geometry(vertices, hull, centroid)
+    front_face_indices = _select_front_faces(face_normals, view_dir)
+    if not front_face_indices:
+        return None, [], np.array([], dtype=int)
+    face_collection = _build_face_collection(front_face_indices, face_vertices, face_normals, view_dir)
+    visible_edges, visible_vertex_indices = _compute_visible_edges(
+        edge_to_faces, front_face_indices, face_normals, vertices, hull
+    )
+    return face_collection, visible_edges, visible_vertex_indices
 
 
 def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, show_info: bool) -> bool:

@@ -77,6 +77,9 @@ def create_interactive_dashboard(display_ui: bool = True):
     output = widgets.Output()
 
     def current_angles():
+        # Drop zero-valued planes: a 0-angle rotation is the identity matrix
+        # regardless of position in the composition product, so omitting it
+        # doesn't change the resulting orientation.
         return {plane: slider.value for plane, slider in sliders.items() if not np.isclose(slider.value, 0.0)}
 
     def render(*_):
@@ -98,10 +101,7 @@ def create_interactive_dashboard(display_ui: bool = True):
             figure.canvas.draw_idle()
             state["display_handle"].update(figure)
 
-    def apply_preset(change):
-        if change["name"] != "value":
-            return
-        preset_name = change["new"]
+    def apply_preset_by_name(preset_name):
         if preset_name == custom_value:
             return
         state["applying_preset"] = True
@@ -110,6 +110,11 @@ def create_interactive_dashboard(display_ui: bool = True):
             slider.value = float(preset_angles.get(plane, 0.0))
         state["applying_preset"] = False
         render()
+
+    def apply_preset(change):
+        if change["name"] != "value":
+            return
+        apply_preset_by_name(change["new"])
 
     def mark_custom(change):
         if change["name"] != "value" or state["applying_preset"]:
@@ -140,7 +145,7 @@ def create_interactive_dashboard(display_ui: bool = True):
         ]
     )
 
-    apply_preset({"name": "value", "new": "identity"})
+    apply_preset_by_name("identity")
     if display_ui:
         display(container)
     return container
