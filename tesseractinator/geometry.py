@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import lru_cache
 from numbers import Integral
-from typing import Dict, List, Mapping, Tuple
 
 import numpy as np
 from scipy.spatial import ConvexHull, QhullError
 
 from ._constants import DEFAULT_VIEWER_DISTANCE, EPSILON, PLANE_TO_AXES, TOL, VALID_PLANES
 
-AngleDict = Dict[str, float]
-Edge = Tuple[np.ndarray, np.ndarray]
+AngleDict = dict[str, float]
+Edge = tuple[np.ndarray, np.ndarray]
 
 __all__ = [
     "AngleDict",
@@ -145,7 +145,7 @@ def _slice_tesseract_with_hull(
     *,
     w_fixed: float = 0.0,
     tol: float = TOL,
-) -> Tuple[np.ndarray, List[Edge], ConvexHull]:
+) -> tuple[np.ndarray, list[Edge], ConvexHull]:
     w_fixed = _validate_finite_number(w_fixed, "w_fixed")
     tol = _validate_finite_number(tol, "tol", positive=True)
     rotated_verts = rotate_points(generate_tesseract_vertices(), angles)
@@ -198,6 +198,6 @@ def slice_tesseract(
     *,
     w_fixed: float = 0.0,
     tol: float = TOL,
-) -> Tuple[np.ndarray, List[Edge]]:
+) -> tuple[np.ndarray, list[Edge]]:
     vertices, edges, _ = _slice_tesseract_with_hull(angles, w_fixed=w_fixed, tol=tol)
     return vertices, edges

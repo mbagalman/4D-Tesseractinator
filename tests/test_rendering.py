@@ -10,8 +10,8 @@ matplotlib.use("Agg")
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 
-from tesseractinator.geometry import slice_tesseract
 from tesseractinator import plot_dashboard, plot_projection, plot_slice
+from tesseractinator.geometry import slice_tesseract
 
 
 def test_plot_projection_returns_figure():
@@ -51,7 +51,9 @@ def test_plot_slice_hides_occluded_edges_for_default_view():
 
 def test_plot_slice_hides_back_side_vertices_for_default_view():
     figure = plot_slice({}, w_fixed=0.0)
-    scatter = next(collection for collection in figure.axes[0].collections if hasattr(collection, "_offsets3d"))
+    scatter = next(
+        collection for collection in figure.axes[0].collections if hasattr(collection, "_offsets3d")
+    )
     visible_vertex_count = len(np.asarray(scatter._offsets3d[0]))
     all_vertices, _ = slice_tesseract({}, w_fixed=0.0)
     assert 0 < visible_vertex_count < len(all_vertices)

@@ -18,7 +18,7 @@ def create_interactive_dashboard(display_ui: bool = True):
         from IPython.display import display
     except ImportError as exc:
         raise ImportError(
-            "Interactive notebooks require ipywidgets and IPython. Install with `pip install \".[notebook]\"`."
+            'Interactive notebooks require ipywidgets and IPython. Install with `pip install ".[notebook]"`.'
         ) from exc
 
     presets = standard_presets()
@@ -77,11 +77,7 @@ def create_interactive_dashboard(display_ui: bool = True):
     output = widgets.Output()
 
     def current_angles():
-        return {
-            plane: slider.value
-            for plane, slider in sliders.items()
-            if not np.isclose(slider.value, 0.0)
-        }
+        return {plane: slider.value for plane, slider in sliders.items() if not np.isclose(slider.value, 0.0)}
 
     def render(*_):
         if state["figure"] is None:
@@ -136,7 +132,9 @@ def create_interactive_dashboard(display_ui: bool = True):
     controls_right = widgets.VBox(list(sliders.values()))
     container = widgets.VBox(
         [
-            widgets.HTML("<h2>4D-Tesseractinator</h2><p>Rotate a 4D tesseract and inspect the projection, slice, or both.</p>"),
+            widgets.HTML(
+                "<h2>4D-Tesseractinator</h2><p>Rotate a 4D tesseract and inspect the projection, slice, or both.</p>"
+            ),
             widgets.HBox([controls_left, controls_right]),
             output,
         ]
