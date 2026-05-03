@@ -1,5 +1,7 @@
 """Unified tools for exploring a rotating tesseract."""
 
+from importlib.metadata import version
+
 from .geometry import (
     SliceError,
     compose_rotation_matrix,
@@ -26,4 +28,4 @@ __all__ = [
     "standard_presets",
 ]
 
-__version__ = "0.1.0"
+__version__ = version("tesseractinator")
