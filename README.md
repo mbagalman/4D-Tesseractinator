@@ -1,5 +1,6 @@
 # 4D-Tesseractinator
 
+[![Tests](https://github.com/mbagalman/4D-Tesseractinator/actions/workflows/tests.yml/badge.svg)](https://github.com/mbagalman/4D-Tesseractinator/actions/workflows/tests.yml)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbagalman/4D-Tesseractinator/HEAD?urlpath=lab/tree/notebooks/4D_Tesseractinator_Demo.ipynb)
 
 `4D-Tesseractinator` unifies two earlier experiments into one notebook-first codebase:
@@ -25,17 +26,28 @@ For a short explanation of the geometry behind the project, see [How It Works](d
 
 ## Install
 
-Recommended local setup:
+Create a virtual environment:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install ".[notebook,dev]"
+python -m venv .venv
+```
+
+Activate it:
+
+- **Linux / macOS**: `source .venv/bin/activate`
+- **Windows (PowerShell)**: `.venv\Scripts\Activate.ps1`
+- **Windows (cmd)**: `.venv\Scripts\activate.bat`
+
+Then install the package with notebook and dev extras:
+
+```bash
+python -m pip install ".[notebook,dev]"
 ```
 
 If you only want the library without notebook tooling:
 
 ```bash
-.venv/bin/pip install .
+python -m pip install .
 ```
 
 ## Run
@@ -48,13 +60,13 @@ Launch in Binder:
 Launch the test suite:
 
 ```bash
-.venv/bin/python -m pytest -q
+python -m pytest -q
 ```
 
 Launch the notebook demo:
 
 ```bash
-.venv/bin/jupyter notebook notebooks/4D_Tesseractinator_Demo.ipynb
+python -m jupyter notebook notebooks/4D_Tesseractinator_Demo.ipynb
 ```
 
 Or use the API directly:
@@ -81,18 +93,15 @@ create_interactive_dashboard()
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest -q
+python -m pytest -q
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, lint/test commands, and the PR workflow.
 
 ## Deferred for later
 
 - JSON/OBJ export
 - analysis/reporting helpers
 - browser or desktop packaging
-
-## Legacy baselines
-
-This repo was assembled from the local baselines below, preserving their working math and tests:
-
-- `Tesseract` at `2a6776d`
-- `Four_D_Rotator` at `b85a78f`
