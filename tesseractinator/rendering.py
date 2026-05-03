@@ -6,16 +6,17 @@ from itertools import combinations
 from typing import Mapping
 
 import numpy as np
-from scipy.spatial import ConvexHull, QhullError
+from scipy.spatial import ConvexHull
 
 from ._constants import AXIS_COLORS, AXIS_LABELS, DEFAULT_VIEWER_DISTANCE, DEFAULT_W_SLICE, TOL
 from .geometry import (
+    SliceError,
+    _slice_tesseract_with_hull,
     generate_tesseract_edge_indices,
     generate_tesseract_vertices,
     normalize_angles,
     project_4d_to_3d,
     rotate_points,
-    slice_tesseract,
 )
 
 __all__ = ["plot_dashboard", "plot_projection", "plot_slice"]
@@ -176,13 +177,8 @@ def _render_dashboard_to_figure(figure, angles: Mapping[str, float], view_mode: 
     return figure
 
 
-def _build_slice_surface(vertices: np.ndarray, ax):
+def _build_slice_surface(vertices: np.ndarray, hull: ConvexHull, ax):
     plt, _, _, Poly3DCollection = _require_matplotlib()
-    try:
-        hull = ConvexHull(vertices, qhull_options="QJ")
-    except QhullError:
-        return None, [], np.array([], dtype=int)
-
     centroid = vertices.mean(axis=0)
     view_dir = _camera_direction(ax)
     face_normals = {}
@@ -253,23 +249,16 @@ def _build_slice_surface(vertices: np.ndarray, ax):
 def _draw_slice(ax, angles: Mapping[str, float], w_fixed: float, *, tol: float, show_info: bool) -> bool:
     _, _, Line3DCollection, _ = _require_matplotlib()
     try:
-        vertices, edges = slice_tesseract(angles, w_fixed=w_fixed, tol=tol)
-    except Exception as exc:
-        from .geometry import SliceError
-
-        if isinstance(exc, SliceError):
-            _draw_empty_slice(ax, w_fixed)
-            return False
-        raise
+        vertices, edges, hull = _slice_tesseract_with_hull(angles, w_fixed=w_fixed, tol=tol)
+    except SliceError:
+        _draw_empty_slice(ax, w_fixed)
+        return False
 
     distances = np.linalg.norm(vertices, axis=1)
     denominator = float(np.max(distances))
-    normalized = np.zeros_like(distances) if np.isclose(denominator, 0.0) else distances / denominator
-    colors = np.linspace(0.15, 0.95, len(vertices))
-    if len(vertices):
-        colors = normalized
+    colors = np.zeros_like(distances) if np.isclose(denominator, 0.0) else distances / denominator
 
-    face_collection, visible_edges, visible_vertex_indices = _build_slice_surface(vertices, ax)
+    face_collection, visible_edges, visible_vertex_indices = _build_slice_surface(vertices, hull, ax)
     if face_collection is not None:
         ax.add_collection3d(face_collection)
     edge_segments = visible_edges or edges
