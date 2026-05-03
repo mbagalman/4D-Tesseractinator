@@ -140,12 +140,12 @@ def project_4d_to_3d(points4d: np.ndarray, viewer_distance: float = DEFAULT_VIEW
     return points4d[:, :3] * factor[:, np.newaxis]
 
 
-def slice_tesseract(
+def _slice_tesseract_with_hull(
     angles: Mapping[str, float] | None,
     *,
     w_fixed: float = 0.0,
     tol: float = TOL,
-) -> Tuple[np.ndarray, List[Edge]]:
+) -> Tuple[np.ndarray, List[Edge], ConvexHull]:
     w_fixed = _validate_finite_number(w_fixed, "w_fixed")
     tol = _validate_finite_number(tol, "tol", positive=True)
     rotated_verts = rotate_points(generate_tesseract_vertices(), angles)
@@ -157,8 +157,6 @@ def slice_tesseract(
         w1, w2 = p1[3], p2[3]
 
         if (w1 < w_fixed and w2 > w_fixed) or (w2 < w_fixed and w1 > w_fixed):
-            if np.isclose(w1, w2, atol=tol):
-                continue
             t = (w_fixed - w1) / (w2 - w1)
             intersection = p1 + t * (p2 - p1)
             intersection_points.append(intersection[:3])
@@ -192,4 +190,14 @@ def slice_tesseract(
 
     final_vertices = hull.points
     edges = [(final_vertices[i], final_vertices[j]) for i, j in edge_set]
-    return final_vertices, edges
+    return final_vertices, edges, hull
+
+
+def slice_tesseract(
+    angles: Mapping[str, float] | None,
+    *,
+    w_fixed: float = 0.0,
+    tol: float = TOL,
+) -> Tuple[np.ndarray, List[Edge]]:
+    vertices, edges, _ = _slice_tesseract_with_hull(angles, w_fixed=w_fixed, tol=tol)
+    return vertices, edges
